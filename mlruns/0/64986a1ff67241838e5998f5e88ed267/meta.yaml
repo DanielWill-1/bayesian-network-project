@@ -1,0 +1,15 @@
+artifact_uri: mlflow-artifacts:/0/64986a1ff67241838e5998f5e88ed267/artifacts
+end_time: 1732637749075
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 64986a1ff67241838e5998f5e88ed267
+run_name: Humidity_Prediction_Model
+run_uuid: 64986a1ff67241838e5998f5e88ed267
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1732637734510
+status: 4
+tags: []
+user_id: danie
