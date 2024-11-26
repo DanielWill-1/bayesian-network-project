@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 from pgmpy.models import BayesianModel
 from pgmpy.estimators import HillClimbSearch, BicScore, MaximumLikelihoodEstimator
 from pgmpy.inference import VariableElimination
@@ -114,3 +116,28 @@ else:
         print(f"Precipitation bin {idx} (approx. {est.bin_edges_[continuous_vars.index('Precipitation')][idx]:.1f}mm - {est.bin_edges_[continuous_vars.index('Precipitation')][idx+1]:.1f}mm): Probability = {prob:.4f}")
 
     print(f"\nExpected Rainfall Amount: {expected_rainfall:.2f} mm")
+plt.figure(figsize=(8,6))
+sns.histplot(data['Temperature'], bins=30, kde=True)
+plt.title('Temperature Distribution')
+plt.xlabel('Temperature')
+plt.ylabel('Frequency')
+plt.show()
+
+# Correlation Matrix
+plt.figure(figsize=(8,6))
+# Correlation Matrix
+plt.figure(figsize=(8,6))
+# Calculate correlation on numerical columns only
+corr = data[['Temperature', 'Humidity', 'Precipitation']].corr()  # Select only numerical columns
+sns.heatmap(corr, annot=True, cmap='coolwarm')
+plt.title('Correlation Matrix')
+plt.show()
+
+# Boxplot of Humidity by Location
+plt.figure(figsize=(12,6))
+sns.boxplot(x='Location', y='Humidity', data=data)
+plt.title('Humidity by Location')
+plt.xlabel('Location')
+plt.ylabel('Humidity')
+plt.xticks(rotation=90)
+plt.show()
