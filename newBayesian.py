@@ -18,7 +18,7 @@ from sklearn.metrics import mean_squared_error
 
 # Load the dataset
 # Ensure that the 'weatherAUS.csv' file is in your working directory
-data = pd.read_csv('C:/Users/danie/OneDrive/Documents/GitHub/bayesian-network-project/weatherAUS.csv')
+data = pd.read_csv('weatherAUS.csv')
 
 # Data Preprocessing
 # Select relevant columns
@@ -151,14 +151,14 @@ plt.xlabel('Location')
 plt.ylabel('Humidity')
 plt.xticks(rotation=90)
 plt.show()
-
+"""
 # New code: Implementing Step 5 - Model Training and Evaluation using PyTorch
 # ===========================================================================
 
 # Prepare data for PyTorch models
 # -------------------------------
 # Using the original continuous variables before discretization
-data_continuous = pd.read_csv('C:/Users/danie/OneDrive/Documents/GitHub/bayesian-network-project/weatherAUS.csv')
+data_continuous = pd.read_csv('weatherAUS.csv')
 data_continuous = data_continuous[['Location', 'MinTemp', 'MaxTemp', 'Humidity9am', 'Humidity3pm', 'Rainfall']]
 data_continuous.dropna(inplace=True)
 data_continuous['Temperature'] = data_continuous[['MinTemp', 'MaxTemp']].mean(axis=1)
@@ -380,4 +380,117 @@ if temperature_value != '':
     except ValueError:
         print("Invalid Temperature value. Please enter a numeric value.")
 # ===========================================================================
+"""
+
+import mlflow
+import mlflow.pytorch
+from prometheus_client import start_http_server, Summary, Counter, Gauge
+import time
+# Start Prometheus metrics server
+start_http_server(8000)
+print("Prometheus metrics server started on port 8000")
+
+# Define Prometheus metrics
+REQUEST_TIME = Summary('request_processing_seconds', 'Time spent processing request')
+PREDICTION_COUNTER = Counter('prediction_requests_total', 'Total prediction requests')
+HUMIDITY_GAUGE = Gauge('predicted_humidity', 'Predicted Humidity')
+PRECIPITATION_GAUGE = Gauge('predicted_precipitation', 'Predicted Precipitation')
+
+# Wrap the make_predictions function to include monitoring
+def monitored_make_predictions(user_location, temperature_value):
+    start_time = time.time()
+    PREDICTION_COUNTER.inc()
+    # Call the original function
+    make_predictions(user_location, temperature_value)
+    # Record execution time
+    duration = time.time() - start_time
+    REQUEST_TIME.observe(duration)
+
+    # Update gauges with the latest predictions
+    # Note: In the original make_predictions function, we need to return the predictions
+    humidity_pred, precipitation_pred = get_predictions(user_location, temperature_value)
+    HUMIDITY_GAUGE.set(humidity_pred)
+    PRECIPITATION_GAUGE.set(precipitation_pred)
+
+# Modify make_predictions to return predictions
+def get_predictions(user_location, temperature_value):
+    # Encode the location
+    if user_location not in le_location.classes_:
+        print(f"Location '{user_location}' not found in the dataset.")
+        print("Available locations are:", list(le_location.classes_))
+        return None, None
+
+    encoded_location = le_location.transform([user_location])[0]
+    # Prepare input data
+    input_features = np.array([[encoded_location, temperature_value]])
+    input_features_scaled = scaler_X.transform(input_features)
+    input_tensor = torch.tensor(input_features_scaled, dtype=torch.float32)
+
+    # Load models
+    model_humidity = WeatherNN(input_size=2, hidden_size=best_params_humidity['hidden_size'], output_size=1)
+    model_humidity.load_state_dict(torch.load('model_humidity.pth'))
+    model_humidity.eval()
+
+    model_precipitation = WeatherNN(input_size=2, hidden_size=best_params_precipitation['hidden_size'], output_size=1)
+    model_precipitation.load_state_dict(torch.load('model_precipitation.pth'))
+    model_precipitation.eval()
+
+    # Make predictions
+    with torch.no_grad():
+        humidity_pred_scaled = model_humidity(input_tensor).item()
+        precipitation_pred_scaled = model_precipitation(input_tensor).item()
+
+    # Inverse transform predictions
+    humidity_pred = scaler_humidity.inverse_transform([[humidity_pred_scaled]])[0][0]
+    precipitation_pred = scaler_precipitation.inverse_transform([[precipitation_pred_scaled]])[0][0]
+
+    return humidity_pred, precipitation_pred
+
+# Use the monitored function
+if temperature_value != '':
+    try:
+        temperature_value = float(temperature_value)
+        monitored_make_predictions(user_location, temperature_value)
+    except ValueError:
+        print("Invalid Temperature value. Please enter a numeric value.")
+
+# Keep the script running to allow Prometheus to scrape metrics
+try:
+    while True:
+        time.sleep(1)
+except KeyboardInterrupt:
+    print("Shutting down Prometheus metrics server.")
+
+# Set the tracking URI (can be a local folder or a remote server)
+mlflow.set_tracking_uri('file:///mlruns')  # Adjust the path as needed
+
+# Start an MLflow run for Humidity model
+with mlflow.start_run(run_name="Humidity_Prediction_Model"):
+    # Log parameters
+    mlflow.log_param('model_type', 'Neural Network')
+    mlflow.log_param('hidden_size', best_params_humidity['hidden_size'])
+    mlflow.log_param('learning_rate', best_params_humidity['learning_rate'])
+    mlflow.log_param('epochs', 20)
+
+    # Log final training loss
+    mlflow.log_metric('final_loss', avg_loss)
+
+    # Log the model
+    mlflow.pytorch.log_model(final_model_humidity, "model_humidity")
+
+# Start an MLflow run for Precipitation model
+with mlflow.start_run(run_name="Precipitation_Prediction_Model"):
+    # Log parameters
+    mlflow.log_param('model_type', 'Neural Network')
+    mlflow.log_param('hidden_size', best_params_precipitation['hidden_size'])
+    mlflow.log_param('learning_rate', best_params_precipitation['learning_rate'])
+    mlflow.log_param('epochs', 20)
+
+    # Log final training loss
+    mlflow.log_metric('final_loss', avg_loss)
+
+    # Log the model
+    mlflow.pytorch.log_model(final_model_precipitation, "model_precipitation")
+
+print("MLflow tracking complete.")
 
