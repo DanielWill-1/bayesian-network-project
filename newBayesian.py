@@ -26,9 +26,20 @@ import subprocess  # To start MLflow UI programmatically
 import sys         # To get the path to the Python executable
 import os          # For path manipulations
 
+if getattr(sys, 'frozen', False):
+    # If the application is running as a bundle (e.g., with PyInstaller)
+    script_dir = sys._MEIPASS
+else:
+    # If running in a normal Python environment
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Construct the path to the data file
+data_path = os.path.join(script_dir, 'weatherAUS.csv')
+
 # Set the tracking URI for MLflow (adjust the path as needed)
 # Get the absolute path to the 'mlruns' directory
-mlruns_path = os.path.abspath('mlruns')
+mlruns_path = os.path.join(script_dir, 'mlruns')
+mlflow.set_tracking_uri(f'file:///{mlruns_path}')
 
 # Ensure the 'mlruns' directory exists
 if not os.path.exists(mlruns_path):
@@ -47,7 +58,7 @@ mlflow_ui_process = subprocess.Popen([
 print("MLflow UI started at http://localhost:5000")
 
 # Load the dataset
-data = pd.read_csv('weatherAUS.csv')
+data = pd.read_csv(data_path)
 
 # Data Preprocessing
 # ==================
