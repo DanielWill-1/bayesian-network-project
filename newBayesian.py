@@ -35,7 +35,8 @@ else:
 
 # Construct the path to the data file
 data_path = os.path.join(script_dir, 'weatherAUS.csv')
-
+if not os.path.isfile(data_path):
+    sys.exit(f"Error: Data file '{data_path}' not found. Ensure the file is in the correct location.")
 # Set the tracking URI for MLflow (adjust the path as needed)
 # Get the absolute path to the 'mlruns' directory
 mlruns_path = os.path.join(script_dir, 'mlruns')
@@ -83,10 +84,15 @@ data = data[['Location', 'Temperature', 'Humidity', 'Precipitation']]
 
 # Discretize continuous variables using quantiles
 from sklearn.preprocessing import KBinsDiscretizer
-
+import warnings
 continuous_vars = ['Temperature', 'Humidity', 'Precipitation']
-
-est = KBinsDiscretizer(n_bins=3, encode='ordinal', strategy='quantile')
+warnings.filterwarnings("ignore", category=UserWarning, module="sklearn.preprocessing")
+est = KBinsDiscretizer(n_bins=10, encode='ordinal', strategy='uniform')
+try:
+    data[continuous_vars] = est.fit_transform(data[continuous_vars])
+except ValueError as e:
+    print(f"Discretization error: {e}")
+    sys.exit("Exiting due to data issues.")
 data[continuous_vars] = est.fit_transform(data[continuous_vars])
 
 data[continuous_vars] = data[continuous_vars].astype(int)
@@ -124,7 +130,7 @@ if user_location not in location_encoder.classes_:
     print(f"Location '{user_location}' not found in the dataset.")
     print("Available locations are:", list(location_encoder.classes_))
     print("Exiting the program due to invalid location.")
-    exit()  # Exit the script if the location is invalid
+    sys.exit()  # Exit the script if the location is invalid
 
 # Proceed with the rest of the code
 # Optionally, you can ask the user to input Temperature or use default
